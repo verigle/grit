@@ -11,8 +11,7 @@ from datasets.caption.metrics import PTBTokenizer, Cider
 from models.caption import Transformer, GridFeatureNetwork, CaptionGenerator
 from models.caption.detector import build_detector
 from models.common.attention import MemoryAttention
-# from tools.extract_features import extract_vis_features
-from tools.extract_features import extract_gri_features
+from tools.extract_features import extract_vis_features
 from utils.cap_scheduler import CosineLRScheduler
 
 import torch
@@ -47,26 +46,26 @@ def main(gpu, config):
 
     detector = DDP(detector, device_ids=[gpu])
 
-    encoder = GridFeatureNetwork(
+    grit_net = GridFeatureNetwork(
         pad_idx=config.model.pad_idx,
         d_in=config.model.grid_feat_dim,
         dropout=config.model.dropout,
         attn_dropout=config.model.attn_dropout,
         attention_module=MemoryAttention,
-        **config.model.encoder,
+        **config.model.grit_net,
     )
-    decoder = CaptionGenerator(
+    cap_generator = CaptionGenerator(
         vocab_size=config.model.vocab_size,
         max_len=config.model.max_len,
         pad_idx=config.model.pad_idx,
         dropout=config.model.dropout,
         attn_dropout=config.model.attn_dropout,
-        cfg=config.model.decoder,
-        **config.model.decoder,
+        cfg=config.model.cap_generator,
+        **config.model.cap_generator,
     )
     model = Transformer(
-        encoder,
-        decoder,
+        grit_net,
+        cap_generator,
         detector=detector.module,
         use_gri_feat=config.model.use_gri_feat,
         use_reg_feat=config.model.use_reg_feat,
@@ -102,8 +101,7 @@ def main(gpu, config):
                 if 'detector' in n:
                     p.requires_grad = False
         else:
-            # extract_vis_features(detector, config, device, rank)
-            extract_gri_features(detector, config, device, rank)
+            extract_vis_features(detector, config, device, rank)
 
     model = DDP(model, device_ids=[gpu], find_unused_parameters=True, broadcast_buffers=False)
     optimizers = build_optimizers(model, config, mode='xe')
@@ -175,8 +173,7 @@ def main(gpu, config):
             samplers['train'].set_epoch(epoch)
 
         elif phase == 'fr_sc' or phase == 'ft_sc':
-            # checkpoint = torch.load('checkpoint_best_valid.pth', map_location='cpu')
-            checkpoint = torch.load('checkpoint_best_test.pth', map_location='cpu')
+            checkpoint = torch.load('checkpoint_best_valid.pth', map_location='cpu')
             missing, unexpected = model.module.load_state_dict(checkpoint['state_dict'], strict=False)
             print(f"Start self-critical optimization: missing={len(missing)}, unexpected={len(unexpected)}")
             train_res = train_sc(
@@ -194,7 +191,7 @@ def main(gpu, config):
             )
             samplers['train_dict'].set_epoch(epoch)
 
-        if rank == 1:
+        if rank == 0:
             best_cider_val = evaluate_metrics(
                 model,
                 optimizers,
@@ -261,6 +258,5 @@ if __name__ == "__main__":
     os.environ["DATA_ROOT"] = "/media/localhost/F/deeplearning/datasets/multi-modal/GRIT/coco_caption"
     os.environ["output"] = "/media/localhost/F/deeplearning/training/multi-modal/vision-language/GRIT"
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "6689"
-
+    os.environ["MASTER_PORT"] = "6688"
     run_main()
