@@ -142,3 +142,7 @@ modelzoo
 result.csv
 result.txt
 tensorboard/*
+
+
+models/ops/*
+scripts
