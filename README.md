@@ -1,4 +1,4 @@
-## GRIT: Faster and Better Image-captioning Transformer (ECCV 2022)
+## GRIT: Faster and Better Image captioning Transformer (ECCV 2022)
 
 This is the code implementation for the paper titled: "GRIT: Faster and Better Image-captioning Transformer Using Dual Visual Features" (Accepted to ECCV 2022) [[Arxiv](https://arxiv.org/abs/2207.09666)].
 
@@ -85,7 +85,19 @@ python train_caption.py exp.name=caption_4ds model.detector.checkpoint=4ds_detec
 # with pretrained object detector on Visual Genome
 python train_caption.py exp.name=caption_4ds model.detector.checkpoint=vg_detector_path
 ```
-* **More configurations will be added here for obtaining ablation results**.
+
+<!-- * **More configurations will be added here for obtaining ablation results**. -->
+* To freeze the backbone and detector, we can extract the region features and initial grid features first, saving it to `dataset.hdf5_path` in the config file.
+Then we can run the following script to train the model:
+```shell
+export DATA_ROOT=path/to/coco_dataset
+# with pretrained object detector on 4 datasets
+python train_caption.py exp.name=caption_4ds model.detector.checkpoint=4ds_detector_path \
+optimizer.freezing_xe_epochs=10 \
+optimizer.freezing_sc_epochs=10 \
+optimizer.finetune_xe_epochs=0 \
+optimizer.finetune_sc_epochs=0
+```
 
 ### Evaluation
 
@@ -109,6 +121,23 @@ python eval_caption_online.py split='valid' exp.checkpoint=path_to_caption_check
 python eval_caption_online.py split='test' exp.checkpoint=path_to_caption_checkpoint
 ```
 
+### Inference on RGB Image
+
+* Perform Inference for a single image using the script `inference_caption.py`:
+```
+python inference_caption.py +img_path='notebooks/COCO_val2014_000000000772.jpg' \
++vocab_path='path_to_annotations/vocab.json' \
+exp.checkpoint='path_to_caption_checkpoint'
+```
+*  Perform Inference for a single image using the Jupyter notebook `notebooks/Inference.ipynb`
+```shell
+# Require installing Jupyter(lab)
+pip install jupyterlab
+
+cd notebooks
+# Open jupyter notebook
+jupyter lab
+```
 
 
 ## Citation

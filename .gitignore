@@ -134,6 +134,7 @@ examples/runs
 
 # local folders
 
+models/ops/*
 
 output
 modelzoo

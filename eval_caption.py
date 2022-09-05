@@ -33,30 +33,27 @@ def main(gpu, config):
     # extract reg features + initial grid features
     detector = build_detector(config).to(device)
 
-    # wrap it into DDP to easily load the checkpoint
-    detector = DDP(detector, device_ids=[gpu])
-
-    encoder = GridFeatureNetwork(
+    grit_net = GridFeatureNetwork(
         pad_idx=config.model.pad_idx,
         d_in=config.model.grid_feat_dim,
         dropout=config.model.dropout,
         attn_dropout=config.model.attn_dropout,
         attention_module=MemoryAttention,
-        **config.model.encoder,
+        **config.model.grit_net,
     )
-    decoder = CaptionGenerator(
+    cap_generator = CaptionGenerator(
         vocab_size=config.model.vocab_size,
         max_len=config.model.max_len,
         pad_idx=config.model.pad_idx,
-        cfg=config.model.decoder,
+        cfg=config.model.cap_generator,
         dropout=config.model.dropout,
         attn_dropout=config.model.attn_dropout,
-        **config.model.decoder,
+        **config.model.cap_generator,
     )
     model = Transformer(
-        encoder,
-        decoder,
-        detector=detector.module,
+        grit_net,
+        cap_generator,
+        detector=detector,
         use_gri_feat=config.model.use_gri_feat,
         use_reg_feat=config.model.use_reg_feat,
         config=config,
@@ -76,6 +73,8 @@ def main(gpu, config):
 
     text_field = TextField(vocab_path=config.dataset.vocab_path)
 
+    with open('test.txt', 'w') as f:
+        f.write("Testttt")
     split = config.split
     print(f"Evaluating on split: {split}")
     scores = evaluate_metrics(

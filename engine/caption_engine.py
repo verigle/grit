@@ -13,7 +13,7 @@ from tqdm import tqdm
 from datasets.caption import metrics
 from torch.nn import NLLLoss
 import torch.distributed as dist
-
+from engine.utils import NestedTensor
 
 def build_optimizers(model, config, mode='xe'):
     model = getattr(model, 'module', model)
@@ -116,7 +116,7 @@ def log_epoch(config, writer, epoch, train_res, split, scores, which='ft_xe'):
 
     with open('result.csv', 'a') as f:
         text = f'{config.exp.name.split("/")[-1]}, '
-        backbone = 'S-' if config.model.detector.backbone_name == 'swin_small' else 'B-'
+        backbone = 'B-'
         backbone += 'VG' if os.path.exists(config.model.detector.checkpoint) else 'IM'
         text += f'{backbone}, '
         text += f'{config.dataset.transform_cfg.size[0]}_{config.dataset.transform_cfg.size[1]}, '
@@ -182,10 +182,10 @@ def evaluate_metrics(
             end_it = time.time()
             times.append(end_it - start_it)
 
-            if 'samples' in batch:
+            if 'samples' in batch and not isinstance(batch['samples'], dict):
                 bs = batch['samples'].tensors.shape[0]
-            elif 'vis_feat' in batch:
-                bs = batch['vis_feat'].shape[0]
+            else:
+                bs = batch['samples']['reg_feat'].shape[0]
             if it % 100 == 0:
                 print(
                     f"Number of iterations: {counter}, batch_size={bs}, Total time per 1 batch: {sum(times)/counter:0.5f}s"
@@ -407,10 +407,15 @@ def train_sc(model,
     with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(dataloaders['train_dict'])) as pbar:
         for it, batch in enumerate(dataloaders['train_dict']):
             if 'samples' in batch:
-                b_s = batch['samples'].tensors.shape[0]
+                if isinstance(batch['samples'], NestedTensor):
+                    b_s = batch['samples'].tensors.shape[0]
+                elif 'gri_feat' in batch['samples']:
+                    b_s = batch['samples']['gri_feat'].shape[0]
+                elif 'reg_feat' in batch['samples']:
+                    b_s = batch['samples']['reg_feat'].shape[0]
             elif 'vis_feat' in batch:
                 b_s = batch['vis_feat'].shape[0]
-
+                
             optimizers['model'].zero_grad()
             optimizers['backbone'].zero_grad()
             outs, log_probs = model(
