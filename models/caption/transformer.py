@@ -18,7 +18,6 @@ class Transformer(BaseCaptioner):
                  config=None):
         super(Transformer, self).__init__()
         self.bos_idx = bos_idx
-        self.detector = detector
         self.grid_net = grid_net
         self.cap_generator = cap_generator
         self.use_reg_feat = use_reg_feat
@@ -35,6 +34,7 @@ class Transformer(BaseCaptioner):
             self.register_state('reg_mask', None)
 
         self.init_weights()
+        self.detector = detector
 
     def init_weights(self):
         for p in self.parameters():
@@ -213,7 +213,7 @@ class Transformer(BaseCaptioner):
             # When decoding, we will remove all predictions after <EOS>
 
         selected_idx, selected_logprob = self.select(timestep, candidate_logprob, beam_size, **kwargs)
-        selected_beam = torch.div(selected_idx, candidate_logprob.shape[-1],  rounding_mode='floor')  # [B Beam]
+        selected_beam = torch.div(selected_idx, candidate_logprob.shape[-1],  rounding_mode='floor') # [B Beam] (with new api)
         selected_words = selected_idx - selected_beam * candidate_logprob.shape[-1]  # [B Beam]
 
         # save the states of the selected beam

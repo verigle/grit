@@ -1,6 +1,6 @@
 exp:
   seed: 42
-  name: eval # caption_4ds
+  name: eval
   rank: 0
   ngpus_per_node: 1
   world_size: 1
@@ -75,7 +75,7 @@ optimizer:
   weight_decay: 0.01
   beta_1: 0.9
   beta_2: 0.99
-  batch_size: 4
+  batch_size: 16
   num_workers: 2
   freezing_xe_epochs: 0
   freezing_sc_epochs: 0
@@ -84,7 +84,7 @@ optimizer:
 
 hydra:
   run:
-    dir: ${oc.env:OUTPUT}/checkpoints/grit/coco/${exp.name}
+    dir: ${OUTPUT}/checkpoints/grit/coco/${exp.name}
   output_subdir: ./config # directory for saving the yaml configs
   job:
     config:

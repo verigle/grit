@@ -704,7 +704,7 @@ def swin_base_win7_384(pretrained=None, pos_dim=1024, **kwargs):
     if pretrained is not None:
         if pretrained == 'imagenet':
             path = "pretrained_weights/swin_base_patch4_window7_384_22k.pth"
-            path = os.path.join(os.environ['OUTPUT'], 'checkpoints/eccv', path)
+            path = os.path.join(os.environ['HOME'], 'checkpoints/eccv', path)
             if not os.path.exists(path):
                 torch.hub._download_url_to_file(
                     url=
