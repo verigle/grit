@@ -28,7 +28,16 @@ class ExtractDataset(Dataset):
         self.img_paths = glob(os.path.join(self.root, "train2014/*"))
         self.img_paths += glob(os.path.join(self.root, "val2014/*"))  # Karpathy val/test in val2014 dir
 
-        self.img_ids = sorted([int(p.split('/')[-1].split('.')[0].split('_')[-1]) for p in self.img_paths])
+        # self.img_ids = sorted([int(p.split('/')[-1].split('.')[0].split('_')[-1]) for p in self.img_paths])
+        # todo: Debug
+
+        with open(os.path.join(self.root, 'annotations', 'valid_ids.json'), 'r') as f:
+            import json
+            self.img_ids = sorted(list(set(json.load(f))))
+        self.img_paths = [path for path in self.img_paths if
+                          int(path.split('/')[-1].split('.')[0].split('_')[-1]) in self.img_ids]
+        # todo: end Debug
+
         self.img_id2idx = {img_id: img_idx for img_idx, img_id in enumerate(self.img_ids)}
 
     def __len__(self):
@@ -54,7 +63,7 @@ def extract_vis_features(model, config, device, rank):
     sampler = DistributedSampler(dataset, shuffle=False)
     dataloader = DataLoader(dataset, sampler=sampler, collate_fn=collate_fn, batch_size=(BATCH_SIZE - 1), num_workers=2)
 
-    stage = -1 # config.model.grid_stage
+    stage = -1  # config.model.grid_stage
     C = config.model.grid_feat_dim
     L = len(dataset)
 
@@ -73,7 +82,7 @@ def extract_vis_features(model, config, device, rank):
     path = os.path.join(dir_path, filename)
 
     if not os.path.exists(path):
-        if rank != -1 :
+        if rank != -1:
             print(f"rank: {rank} - Create hdf5 file: {path}")
             L = len(dataloader) * BATCH_SIZE
             with h5py.File(path, 'w') as h:

@@ -320,12 +320,22 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
         valid_field.use_hdf5_feat = False
         train_field.use_hdf5_feat = False
 
+    # datasets = {
+    #     'train': CPairedDataset(examples['train'], train_field, overfit=overfit),
+    #     'valid': CPairedDataset(examples['valid'], valid_field, overfit=overfit),
+    #     'train_dict': CDictionaryDataset(examples['train'], train_field, overfit=overfit),
+    #     'valid_dict': CDictionaryDataset(examples['valid'], valid_field, overfit=overfit),
+    #     'test_dict': CDictionaryDataset(examples['test'], valid_field, overfit=overfit),
+    # }
+
     datasets = {
-        'train': CPairedDataset(examples['train'], train_field, overfit=overfit),
+        # replace examples['train'] -> examples['valid']
+        'train': CPairedDataset(examples['valid'], train_field, overfit=overfit),
         'valid': CPairedDataset(examples['valid'], valid_field, overfit=overfit),
-        'train_dict': CDictionaryDataset(examples['train'], train_field, overfit=overfit),
+        # replace examples['train'] -> examples['valid']
+        'train_dict': CDictionaryDataset(examples['valid'], train_field, overfit=overfit),
         'valid_dict': CDictionaryDataset(examples['valid'], valid_field, overfit=overfit),
-        'test_dict': CDictionaryDataset(examples['test'], valid_field, overfit=overfit),
+        'test_dict': CDictionaryDataset(examples['valid'], valid_field, overfit=overfit),
     }
 
     collators = {
