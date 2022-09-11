@@ -43,6 +43,8 @@ def main(gpu, config):
         missing, unexpected = detector.load_state_dict(checkpoint['model'], strict=False)
         print("det missing:", len(missing))
         print("det unexpected:", len(unexpected))
+    else:
+        print("could not load detector weights : detector checkpoint file not found !")
 
     # detector = DDP(detector, device_ids=[gpu])
 
@@ -66,7 +68,7 @@ def main(gpu, config):
     model = Transformer(
         grit_net,
         cap_generator,
-        detector=detector, # .module,
+        detector=detector,  # .module,
         use_gri_feat=config.model.use_gri_feat,
         use_reg_feat=config.model.use_reg_feat,
         config=config,
@@ -110,8 +112,8 @@ def main(gpu, config):
     writer = SummaryWriter(log_dir='tensorboard') if rank == 0 or rank == 1 else None
 
     # train with freezing xe
-    if start_epoch < config.optimizer.freezing_xe_epochs \
-        and not getattr(config.optimizer, 'freeze_backbone', False):
+    if (start_epoch < config.optimizer.freezing_xe_epochs or start_epoch < config.optimizer.freezing_sc_epochs) \
+            and not getattr(config.optimizer, 'freeze_backbone', False):
         model.module.cached_features = True
         dataloaders, samplers = build_coco_dataloaders(config, mode='freezing', device=device)
     else:
@@ -121,7 +123,7 @@ def main(gpu, config):
     text_field = TextField(vocab_path=config.dataset.vocab_path)
     train_dataset = dataloaders['train'].dataset
     cider = Cider(PTBTokenizer.tokenize([e.text for e in train_dataset.examples]))
-    tokenizer = multiprocessing.Pool(8)  #config.optimizer.num_workers)
+    tokenizer = multiprocessing.Pool(8)  # config.optimizer.num_workers)
 
     scheduler = CosineLRScheduler(
         optimizers['model'],
@@ -207,7 +209,7 @@ def main(gpu, config):
                 scheduler=scheduler,
             )
 
-        if rank == 1:
+        if rank == 0:
             best_cider_test = evaluate_metrics(
                 model,
                 optimizers,
@@ -255,7 +257,8 @@ def run_main(config: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    # os.environ["DATA_ROOT"] = "/home/quang/datasets/coco_caption"
+    os.environ["DATA_ROOT"] = "/media/localhost/D/deeplearning/datasets/multi-modal/GRIT/coco_caption"
+    os.environ["OUTPUT"] = "/media/localhost/F/deeplearning/training/multi-modal/vision-language/GRIT"
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "6688"
     run_main()
