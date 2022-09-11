@@ -46,7 +46,7 @@ class ExtractDataset(Dataset):
 
 
 def extract_vis_features(model, config, device, rank):
-    BATCH_SIZE = 64
+    BATCH_SIZE = 32
     model = model.eval()
     print(f"Extract vis feature. Rank: {rank}")
     transform = get_transform(config.dataset.transform_cfg)['valid']
@@ -72,84 +72,87 @@ def extract_vis_features(model, config, device, rank):
     dir_path = os.path.dirname(config.dataset.hdf5_path)
     path = os.path.join(dir_path, filename)
 
-    if rank != -1:
-        print(f"rank: {rank} - Create hdf5 file: {path}")
-        L = len(dataloader) * BATCH_SIZE
-        with h5py.File(path, 'w') as h:
-            h.create_dataset('image_ids', data=dataset.img_ids)
-            h.create_dataset('gri_feat', (L, fh * fw, C), dtype='float32')
-            h.create_dataset('gri_mask', (L, 1, 1, fh * fw), dtype='bool')
+    if not os.path.exists(path):
+        if rank != -1 :
+            print(f"rank: {rank} - Create hdf5 file: {path}")
+            L = len(dataloader) * BATCH_SIZE
+            with h5py.File(path, 'w') as h:
+                h.create_dataset('image_ids', data=dataset.img_ids)
+                h.create_dataset('gri_feat', (L, fh * fw, C), dtype='float32')
+                h.create_dataset('gri_mask', (L, 1, 1, fh * fw), dtype='bool')
 
+                if config.model.use_reg_feat:
+                    Q = config.model.detector.num_queries
+                    D = config.model.detector.d_model
+                    h.create_dataset('reg_feat', (L, Q, D), dtype='float32')
+                    h.create_dataset('reg_mask', (L, 1, 1, Q), dtype='bool')
+        torch.distributed.barrier()
+
+        with h5py.File(path, 'a') as h:
+            gri_features = h['gri_feat']
+            gri_masks = h['gri_mask']
             if config.model.use_reg_feat:
-                Q = config.model.detector.num_queries
-                D = config.model.detector.d_model
-                h.create_dataset('reg_feat', (L, Q, D), dtype='float32')
-                h.create_dataset('reg_mask', (L, 1, 1, Q), dtype='bool')
-    torch.distributed.barrier()
+                reg_features = h['reg_feat']
+                reg_masks = h['reg_mask']
 
-    with h5py.File(path, 'a') as h:
-        gri_features = h['gri_feat']
-        gri_masks = h['gri_mask']
-        if config.model.use_reg_feat:
-            reg_features = h['reg_feat']
-            reg_masks = h['reg_mask']
+            tmp_idx = 0
+            tmp_ids_list = []
+            for imgs, img_ids, _ in tqdm(dataloader, total=len(dataloader)):
+                imgs.append(torch.randn(3, H, W))  # random tensor
+                imgs = [img.to(device) for img in imgs]
 
-        tmp_idx = 0
-        tmp_ids_list = []
-        for imgs, img_ids, _ in tqdm(dataloader, total=len(dataloader)):
-            imgs.append(torch.randn(3, H, W))  # random tensor
-            imgs = [img.to(device) for img in imgs]
+                with torch.no_grad():
+                    outputs = model(imgs)
+                    outputs = {k: tensor[:-1].to('cpu').numpy() for k, tensor in outputs.items()}
 
-            with torch.no_grad():
-                outputs = model(imgs)
-                outputs = {k: tensor[:-1].to('cpu').numpy() for k, tensor in outputs.items()}
+                    for idx, img_id in enumerate(img_ids):
+                        gri_features[tmp_idx] = outputs['gri_feat'][idx]
+                        gri_masks[tmp_idx] = outputs['gri_mask'][idx]
 
-                for idx, img_id in enumerate(img_ids):
-                    gri_features[tmp_idx] = outputs['gri_feat'][idx]
-                    gri_masks[tmp_idx] = outputs['gri_mask'][idx]
-
-                    if config.model.use_reg_feat:
-                        reg_features[tmp_idx] = outputs['reg_feat'][idx]
-                        reg_masks[tmp_idx] = outputs['reg_mask'][idx]
-
-                    tmp_ids_list.append(img_id)
-                    tmp_idx += 1
-        h.create_dataset('tmp_ids_list', data=tmp_ids_list)
-
-    torch.distributed.barrier()
-    if rank == 0:
-        num_gpus = dist.get_world_size()
-        with h5py.File(config.dataset.hdf5_path, 'w') as agg_file:
-            L = len(dataloader) * BATCH_SIZE * num_gpus
-            agg_file.create_dataset('image_ids', data=dataset.img_ids)
-            gri_features = agg_file.create_dataset('gri_feat', (L, fh * fw, C), dtype='float32')
-            gri_masks = agg_file.create_dataset('gri_mask', (L, 1, 1, fh * fw), dtype='bool')
-            if config.model.use_reg_feat:
-                Q = config.model.detector.num_queries
-                D = config.model.detector.d_model
-                reg_features = agg_file.create_dataset('reg_feat', (L, Q, D), dtype='float32')
-                reg_masks = agg_file.create_dataset('reg_mask', (L, 1, 1, Q), dtype='bool')
-
-            for r in range(num_gpus):
-                filename = f"{r}_" + os.path.basename(config.dataset.hdf5_path)
-                dir_path = os.path.dirname(config.dataset.hdf5_path)
-                path = os.path.join(dir_path, filename)
-
-                with h5py.File(path, 'r') as f:
-                    tmp_ids_list = f['tmp_ids_list'][:len(f['tmp_ids_list'])]
-
-                    for tmp_idx, tmp_id in enumerate(tmp_ids_list):
-                        img_idx = dataset.img_id2idx[tmp_id]
-                        # Add grid features
-                        gri_features[img_idx] = f['gri_feat'][tmp_idx]
-                        gri_masks[img_idx] = f['gri_mask'][tmp_idx]
-
-                        # Add det features
                         if config.model.use_reg_feat:
-                            reg_features[img_idx] = f['reg_feat'][tmp_idx]
-                            reg_masks[img_idx] = f['reg_mask'][tmp_idx]
+                            reg_features[tmp_idx] = outputs['reg_feat'][idx]
+                            reg_masks[tmp_idx] = outputs['reg_mask'][idx]
 
-                os.remove(path)
-                print(f"rank: {rank} - Delete {path}")
-        print(f"Saving all to HDF5 file: {config.dataset.hdf5_path}.")
+                        tmp_ids_list.append(img_id)
+                        tmp_idx += 1
+            h.create_dataset('tmp_ids_list', data=tmp_ids_list)
+
+    torch.distributed.barrier()
+    if not os.path.exists(config.dataset.hdf5_path):
+        if rank == 0:
+            num_gpus = dist.get_world_size()
+            print("merge HDF5 file from different gpu")
+            with h5py.File(config.dataset.hdf5_path, 'w') as agg_file:
+                L = len(dataloader) * BATCH_SIZE * num_gpus
+                agg_file.create_dataset('image_ids', data=dataset.img_ids)
+                gri_features = agg_file.create_dataset('gri_feat', (L, fh * fw, C), dtype='float32')
+                gri_masks = agg_file.create_dataset('gri_mask', (L, 1, 1, fh * fw), dtype='bool')
+                if config.model.use_reg_feat:
+                    Q = config.model.detector.num_queries
+                    D = config.model.detector.d_model
+                    reg_features = agg_file.create_dataset('reg_feat', (L, Q, D), dtype='float32')
+                    reg_masks = agg_file.create_dataset('reg_mask', (L, 1, 1, Q), dtype='bool')
+
+                for r in range(num_gpus):
+                    filename = f"{r}_" + os.path.basename(config.dataset.hdf5_path)
+                    dir_path = os.path.dirname(config.dataset.hdf5_path)
+                    path = os.path.join(dir_path, filename)
+
+                    with h5py.File(path, 'r') as f:
+                        tmp_ids_list = f['tmp_ids_list'][:len(f['tmp_ids_list'])]
+
+                        for tmp_idx, tmp_id in tqdm(enumerate(tmp_ids_list), total=len(tmp_ids_list)):
+                            img_idx = dataset.img_id2idx[tmp_id]
+                            # Add grid features
+                            gri_features[img_idx] = f['gri_feat'][tmp_idx]
+                            gri_masks[img_idx] = f['gri_mask'][tmp_idx]
+
+                            # Add det features
+                            if config.model.use_reg_feat:
+                                reg_features[img_idx] = f['reg_feat'][tmp_idx]
+                                reg_masks[img_idx] = f['reg_mask'][tmp_idx]
+
+                    os.remove(path)
+                    print(f"rank: {rank} - Delete {path}")
+            print(f"Saving all to HDF5 file: {config.dataset.hdf5_path}.")
     torch.distributed.barrier()
