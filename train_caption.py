@@ -260,5 +260,5 @@ if __name__ == "__main__":
     os.environ["DATA_ROOT"] = "/media/localhost/D/deeplearning/datasets/multi-modal/GRIT/coco_caption"
     os.environ["OUTPUT"] = "/media/localhost/F/deeplearning/training/multi-modal/vision-language/GRIT"
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "6688"
+    os.environ["MASTER_PORT"] = "6689"
     run_main()

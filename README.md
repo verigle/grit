@@ -2,6 +2,7 @@
 
 This is the code implementation for the paper titled: "GRIT: Faster and Better Image-captioning Transformer Using Dual Visual Features" (Accepted to ECCV 2022) [[Arxiv](https://arxiv.org/abs/2207.09666)].
 
+> this is the branch optimize for single GPU to training and modified with feature extract and ids load
 
 ## Introduction
 

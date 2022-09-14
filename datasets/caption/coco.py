@@ -184,6 +184,7 @@ class COCO(CPairedDataset):
         text_field,
         img_root,
         ann_root,
+        ids_npy_root=None,
         use_restval=True,
         cut_validation=False,
         overfit=False,
@@ -211,7 +212,7 @@ class COCO(CPairedDataset):
             'cap': (roots['train']['cap'], roots['valid']['cap'])
         }
 
-        if ann_root is not None:
+        if ids_npy_root is not None:
             ids = {}
             ids['train'] = np.load(os.path.join(ann_root, 'coco_train_ids.npy'))
             ids['valid'] = np.load(os.path.join(ann_root, 'coco_dev_ids.npy'))
@@ -258,7 +259,10 @@ class COCO(CPairedDataset):
                 root = (roots[split]['img'],)
 
             if ids_dataset is None:
-                ids = list(coco_dataset.anns.keys())
+                if isinstance(coco_dataset, tuple) and len(coco_dataset) >= 2:
+                    ids = list(coco_dataset[0].anns.keys()) + list(coco_dataset[1].anns.keys())
+                elif isinstance(coco_dataset, tuple) and len(coco_dataset) == 1:
+                    ids = list(coco_dataset[0].anns.keys())
             else:
                 ids = ids_dataset[split]
 

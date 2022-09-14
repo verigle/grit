@@ -28,7 +28,7 @@ class ExtractDataset(Dataset):
         self.img_paths = glob(os.path.join(self.root, "train2014/*"))
         self.img_paths += glob(os.path.join(self.root, "val2014/*"))  # Karpathy val/test in val2014 dir
 
-        self.img_ids = sorted([int(p.split('/')[-1].split('.')[0].split('_')[-1]) for p in self.img_paths])
+        self.img_ids = [int(p.split('/')[-1].split('.')[0].split('_')[-1]) for p in self.img_paths]
         self.img_id2idx = {img_id: img_idx for img_idx, img_id in enumerate(self.img_ids)}
 
     def __len__(self):
@@ -72,7 +72,7 @@ def extract_vis_features(model, config, device, rank):
     dir_path = os.path.dirname(config.dataset.hdf5_path)
     path = os.path.join(dir_path, filename)
 
-    if not os.path.exists(path):
+    if not os.path.exists(path) and not os.path.exists(config.dataset.hdf5_path):
         if rank != -1 :
             print(f"rank: {rank} - Create hdf5 file: {path}")
             L = len(dataloader) * BATCH_SIZE
@@ -118,8 +118,12 @@ def extract_vis_features(model, config, device, rank):
             h.create_dataset('tmp_ids_list', data=tmp_ids_list)
 
     torch.distributed.barrier()
+
     if not os.path.exists(config.dataset.hdf5_path):
-        if rank == 0:
+        if dist.get_world_size() == 1:
+            os.rename(path, config.dataset.hdf5_path)
+
+        elif rank == 0 and dist.get_world_size() > 1:
             num_gpus = dist.get_world_size()
             print("merge HDF5 file from different gpu")
             with h5py.File(config.dataset.hdf5_path, 'w') as agg_file:

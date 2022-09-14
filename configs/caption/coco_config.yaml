@@ -1,6 +1,6 @@
 exp:
   seed: 42
-  name: caption_4ds_freezing_20220912 # eval
+  name: caption_4ds_freeze_opt_ids_20220914 # eval
   rank: 0
   ngpus_per_node: 1
   world_size: 1
@@ -16,7 +16,7 @@ dataset:
   overfit: False
   ann_root: '${oc.env:DATA_ROOT}/annotations'
   img_root: '${oc.env:DATA_ROOT}'
-  hdf5_path: '${oc.env:DATA_ROOT}/all_splits.h5' # this is used for freezed extractor; fast to train.
+  hdf5_path: '${oc.env:DATA_ROOT}/all_splits_opt_ids.h5' # this is used for freezed extractor; fast to train.
   vocab_path: '${oc.env:DATA_ROOT}/annotations/vocab.json'
   use_gri_feat: ${model.use_gri_feat}
   use_reg_feat: ${model.use_reg_feat}
