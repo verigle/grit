@@ -31,6 +31,7 @@ class ExtractDataset(Dataset):
         self.img_ids = [int(p.split('/')[-1].split('.')[0].split('_')[-1]) for p in self.img_paths]
         self.img_id2idx = {img_id: img_idx for img_idx, img_id in enumerate(self.img_ids)}
 
+
     def __len__(self):
         return len(self.img_paths)
 
@@ -51,10 +52,10 @@ def extract_vis_features(model, config, device, rank):
     print(f"Extract vis feature. Rank: {rank}")
     transform = get_transform(config.dataset.transform_cfg)['valid']
     dataset = ExtractDataset(root=config.dataset.img_root, transform=transform)
-    sampler = DistributedSampler(dataset, shuffle=False)
+    sampler = DistributedSampler(dataset, shuffle=True)
     dataloader = DataLoader(dataset, sampler=sampler, collate_fn=collate_fn, batch_size=(BATCH_SIZE - 1), num_workers=2)
 
-    stage = -1 # config.model.grid_stage
+    stage = -1  # config.model.grid_stage
     C = config.model.grid_feat_dim
     L = len(dataset)
 
@@ -73,7 +74,7 @@ def extract_vis_features(model, config, device, rank):
     path = os.path.join(dir_path, filename)
 
     if not os.path.exists(path) and not os.path.exists(config.dataset.hdf5_path):
-        if rank != -1 :
+        if rank != -1:
             print(f"rank: {rank} - Create hdf5 file: {path}")
             L = len(dataloader) * BATCH_SIZE
             with h5py.File(path, 'w') as h:
