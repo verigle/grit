@@ -316,7 +316,7 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
     train_field = ImageField(transform=transform['train'], **config.dataset)
     examples = COCO(None, text_field, **config.dataset).split_examples()
 
-    if mode == 'freezing' and config.optimizer.freezing_xe_epochs > 0:
+    if mode == 'freezing' and (config.optimizer.freezing_xe_epochs or config.optimizer.freezing_sc_epochs) > 0:
         valid_field.init_hdf5_feat()
         train_field.init_hdf5_feat()
 
@@ -341,7 +341,7 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
     }
 
     batch_size = config.optimizer.batch_size * 4 if mode == 'freezing' else config.optimizer.batch_size
-    sc_batch_size = config.optimizer.batch_size if mode == 'freezing' else config.optimizer.batch_size // 4
+    sc_batch_size = config.optimizer.batch_size // 2 if mode == 'freezing' else config.optimizer.batch_size // 4
 
     dataloaders = {}
     # test and valid

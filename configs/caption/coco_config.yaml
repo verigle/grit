@@ -1,6 +1,6 @@
 exp:
   seed: 42
-  name: caption_4ds_freeze_opt_ids_20220914 # eval
+  name: caption_4ds_freeze_opt_ids_20220922_shuffle # eval
   rank: 0
   ngpus_per_node: 1
   world_size: 1
@@ -74,6 +74,7 @@ optimizer:
   weight_decay: 0.01
   beta_1: 0.9
   beta_2: 0.99
+  accumulation_steps: 4  # batch_size * accumulation_steps = target_batch_size
   batch_size: 32
   num_workers: 1
   freezing_xe_epochs: 10
