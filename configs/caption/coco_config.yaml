@@ -1,6 +1,6 @@
 exp:
   seed: 42
-  name: caption_4ds_freeze_opt_ids_20220926_accumulate # eval
+  name: caption_4ds_freeze_opt_ids_20221023_accumulate # eval
   rank: 0
   ngpus_per_node: 1
   world_size: 1
@@ -81,6 +81,8 @@ optimizer:
   freezing_sc_epochs: 10
   finetune_xe_epochs: 0
   finetune_sc_epochs: 0
+  freeze_backbone: True
+  freeze_detector: True
 
 hydra:
   run:

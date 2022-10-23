@@ -95,13 +95,13 @@ def main(gpu, config):
     if start_epoch < config.optimizer.freezing_xe_epochs + config.optimizer.freezing_sc_epochs:
         if getattr(config.optimizer, 'freeze_backbone', False):
             for p, n in model.named_parameters():
-                if 'backbone' in n:
-                    p.requires_grad = False
+                if 'backbone' in p:
+                    n.requires_grad = False
 
         if getattr(config.optimizer, 'freeze_detector', False):
             for p, n in model.named_parameters():
-                if 'detector' in n:
-                    p.requires_grad = False
+                if 'detector' in p:
+                    n.requires_grad = False
         else:
             extract_vis_features(detector, config, device, rank)
 
