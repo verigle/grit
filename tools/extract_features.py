@@ -52,7 +52,7 @@ def extract_vis_features(model, config, device, rank):
     print(f"Extract vis feature. Rank: {rank}")
     transform = get_transform(config.dataset.transform_cfg)['valid']
     dataset = ExtractDataset(root=config.dataset.img_root, transform=transform)
-    sampler = DistributedSampler(dataset, shuffle=True)
+    sampler = DistributedSampler(dataset, shuffle=False)
     dataloader = DataLoader(dataset, sampler=sampler, collate_fn=collate_fn, batch_size=(BATCH_SIZE - 1), num_workers=2)
 
     stage = -1  # config.model.grid_stage

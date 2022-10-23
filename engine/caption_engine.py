@@ -321,6 +321,8 @@ def train_xe(
     writer=None,
 ):
     model.train()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     loss_fn = NLLLoss(ignore_index=text_field.vocab.stoi['<pad>'])
     if scheduler is not None:
         scheduler.step()
@@ -328,16 +330,19 @@ def train_xe(
     with tqdm(desc=f'Epoch {epoch} - train', unit='it', total=len(dataloaders['train'])) as pbar:
         for it, batch in enumerate(dataloaders['train']):
             out = model(batch['samples'], batch['captions'])
-            optimizers['model'].zero_grad()
-            optimizers['backbone'].zero_grad()
 
             captions_gt = batch['captions'][:, 1:].contiguous()
             out = out[:, :-1].contiguous()
             loss = loss_fn(out.view(-1, len(text_field.vocab)), captions_gt.view(-1))
+            loss = loss / config.optimizer.accumulation_steps
             loss.backward()
 
-            optimizers['model'].step()
-            optimizers['backbone'].step()
+            if (it + 1) % config.optimizer.accumulation_steps == 0 or  (it + 1) == len(dataloaders['train_dict']):
+                optimizers['model'].step()
+                optimizers['backbone'].step()
+
+                optimizers['model'].zero_grad()
+                optimizers['backbone'].zero_grad()
 
             loss = gather_result(loss)
             running_loss += loss.item()
@@ -362,6 +367,8 @@ def train_xe(
                 )
                 lr = optimizers['model'].param_groups[0]['lr']
 
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     val_loss = evaluate_loss(model, dataloaders['valid'], loss_fn, text_field, epoch, writer)
 
     if rank == 0:
@@ -403,6 +410,8 @@ def train_sc(model,
     seq_len = config.model.beam_len
     beam_size = config.model.beam_size
     model.train()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(dataloaders['train_dict'])) as pbar:
         for it, batch in enumerate(dataloaders['train_dict']):
@@ -416,8 +425,7 @@ def train_sc(model,
             elif 'vis_feat' in batch:
                 b_s = batch['vis_feat'].shape[0]
                 
-            optimizers['model'].zero_grad()
-            optimizers['backbone'].zero_grad()
+
             outs, log_probs = model(
                 batch['samples'],
                 seq=None,
@@ -439,11 +447,17 @@ def train_sc(model,
             loss = -torch.mean(log_probs, -1) * (reward - reward_baseline)
 
             loss = loss.mean()
+            loss = loss / config.optimizer.accumulation_steps
+
             loss.backward()
             torch.distributed.barrier()
 
-            optimizers['model'].step()
-            optimizers['backbone'].step()
+            if (it + 1) % config.optimizer.accumulation_steps == 0 or (it + 1) == len(dataloaders['train_dict']):
+                optimizers['model'].step()
+                optimizers['backbone'].step()
+
+                optimizers['model'].zero_grad()
+                optimizers['backbone'].zero_grad()
 
             loss = gather_result(loss)
             running_loss += loss.item()
@@ -470,6 +484,8 @@ def train_sc(model,
                     epoch * len(dataloaders['train_dict']) + it,
                 )
 
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     loss_fn = NLLLoss(ignore_index=text_field.vocab.stoi['<pad>'])
     val_loss = evaluate_loss(model, dataloaders['valid'], loss_fn, text_field, epoch, writer)
     loss = running_loss / len(dataloaders['train_dict'])
