@@ -76,7 +76,7 @@ optimizer:
   beta_2: 0.99
   accumulation_steps: 4  # batch_size * accumulation_steps = target_batch_size
   batch_size: 32
-  num_workers: 2
+  num_workers: 1
   freezing_xe_epochs: 10
   freezing_sc_epochs: 10
   finetune_xe_epochs: 0
