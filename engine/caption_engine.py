@@ -338,8 +338,9 @@ def train_xe(
             loss = loss / config.optimizer.xe_accumulation_steps
             loss.backward()
 
-            # todo last some steps fail to accumulation toward step
-            if (it + 1) % accumulation_steps == 0 or (it + 1) == len(dataloaders['train_dict']):
+            # todo last accumulation steps fail to get suitable grad
+            if (it + 1) % accumulation_steps == 0 or (it + 1) >= len(dataloaders['train']):
+
                 optimizers['model'].step()
                 optimizers['backbone'].step()
 

@@ -23,6 +23,7 @@ class CosineLRScheduler(object):
 
         self.warmup_factor = warmup_factor
         self.warmup_epochs = warmup_epochs
+
         self.global_steps = 0
 
     def step(self):

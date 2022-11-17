@@ -1,6 +1,6 @@
 exp:
   seed: 42
-  name: caption_4ds_freeze_opt_ids_20221117_accumulate # eval
+  name: caption_4ds_freeze_opt_ids_20221118_accumulate # eval
   rank: 0
   ngpus_per_node: 1
   world_size: 1
@@ -67,7 +67,7 @@ model:
 optimizer:
   warmup_init_lr: 1e-5
   min_lr: 1e-4
-  xe_lr: 1e-4 # if xe_lr == min_lr, then CosineAnneal doesn't affect anymore.
+  xe_lr: 5e-4 # if xe_lr == min_lr, then CosineAnneal doesn't affect anymore.
   sc_lr: 5e-6
   xe_backbone_lr: 1e-5
   sc_backbone_lr: 5e-6
