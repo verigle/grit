@@ -121,10 +121,10 @@ def extract_vis_features(model, config, device, rank):
     torch.distributed.barrier()
 
     if not os.path.exists(config.dataset.hdf5_path):
-        if dist.get_world_size() == 1:
-            os.rename(path, config.dataset.hdf5_path)
+        # if dist.get_world_size() == 1:
+        #     os.rename(path, config.dataset.hdf5_path)
 
-        elif rank == 0 and dist.get_world_size() > 1:
+        if rank == 0:
             num_gpus = dist.get_world_size()
             print("merge HDF5 file from different gpu")
             with h5py.File(config.dataset.hdf5_path, 'w') as agg_file:
@@ -147,6 +147,7 @@ def extract_vis_features(model, config, device, rank):
                         tmp_ids_list = f['tmp_ids_list'][:len(f['tmp_ids_list'])]
 
                         for tmp_idx, tmp_id in tqdm(enumerate(tmp_ids_list), total=len(tmp_ids_list)):
+                            # tmp_idx ： idx 序号
                             img_idx = dataset.img_id2idx[tmp_id]
                             # Add grid features
                             gri_features[img_idx] = f['gri_feat'][tmp_idx]

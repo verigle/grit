@@ -102,8 +102,9 @@ def main(gpu, config):
             for p, n in model.named_parameters():
                 if 'detector' in p:
                     n.requires_grad = False
-        else:
-            extract_vis_features(detector, config, device, rank)
+
+        # extract feature
+        extract_vis_features(detector, config, device, rank)
 
     model = DDP(model, device_ids=[gpu], find_unused_parameters=True, broadcast_buffers=False)
     optimizers = build_optimizers(model, config, mode='xe')
@@ -113,7 +114,7 @@ def main(gpu, config):
 
     # train with freezing xe
     if (start_epoch < config.optimizer.freezing_xe_epochs + config.optimizer.freezing_sc_epochs) \
-            and not getattr(config.optimizer, 'freeze_backbone', False):
+            and getattr(config.optimizer, 'freeze_backbone', False):
         model.module.cached_features = True
         dataloaders, samplers = build_coco_dataloaders(config, mode='freezing', device=device)
     else:
@@ -122,8 +123,6 @@ def main(gpu, config):
 
     text_field = TextField(vocab_path=config.dataset.vocab_path)
     train_dataset = dataloaders['train'].dataset
-    cider = Cider(PTBTokenizer.tokenize([e.text for e in train_dataset.examples]))
-    tokenizer = multiprocessing.Pool(8)  # config.optimizer.num_workers)
 
     scheduler = CosineLRScheduler(
         optimizers['model'],
@@ -149,6 +148,7 @@ def main(gpu, config):
         if ft_xe_epochs <= epoch < ft_sc_epochs:
             phase = 'ft_sc'
 
+        # freeze first ,then finetune -> rebuild dataloaders
         if (phase == 'ft_sc' or phase == 'ft_xe') and dataloaders['train'].dataset.image_field.use_hdf5_feat:
             model.module.cached_features = False
             dataloaders, samplers = build_coco_dataloaders(config, mode='finetune', device=device)
@@ -175,6 +175,8 @@ def main(gpu, config):
             samplers['train'].set_epoch(epoch)
 
         elif phase == 'fr_sc' or phase == 'ft_sc':
+            cider = Cider(PTBTokenizer.tokenize([e.text for e in train_dataset.examples]))
+            tokenizer = multiprocessing.Pool(8)  # config.optimizer.num_workers)
             checkpoint = torch.load('checkpoint_best_valid.pth', map_location='cpu')
             missing, unexpected = model.module.load_state_dict(checkpoint['state_dict'], strict=False)
             print(f"Start self-critical optimization: missing={len(missing)}, unexpected={len(unexpected)}")

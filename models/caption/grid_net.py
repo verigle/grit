@@ -65,6 +65,7 @@ class GridFeatureNetwork(nn.Module):
                 **kwargs,
             ) for _ in range(n_layers)
         ])
+        self.padding_idx = pad_idx
 
     def forward(self, input, attention_mask=None, attention_weights=None):
         out = F.relu(self.fc(input))

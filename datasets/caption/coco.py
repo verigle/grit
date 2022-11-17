@@ -184,7 +184,6 @@ class COCO(CPairedDataset):
         text_field,
         img_root,
         ann_root,
-        ids_npy_root=None,
         use_restval=True,
         cut_validation=False,
         overfit=False,
@@ -212,7 +211,7 @@ class COCO(CPairedDataset):
             'cap': (roots['train']['cap'], roots['valid']['cap'])
         }
 
-        if ids_npy_root is not None:
+        if ann_root is not None:
             ids = {}
             ids['train'] = np.load(os.path.join(ann_root, 'coco_train_ids.npy'))
             ids['valid'] = np.load(os.path.join(ann_root, 'coco_dev_ids.npy'))
@@ -246,8 +245,8 @@ class COCO(CPairedDataset):
         train_samples = []
         valid_samples = []
         test_samples = []
-        heights = []
-        widths = []
+        # heights = []
+        # widths = []
 
         splits = ['valid', 'test'] if self.overfit else ['train', 'valid', 'test']
         for split in splits:
@@ -259,7 +258,7 @@ class COCO(CPairedDataset):
                 root = (roots[split]['img'],)
 
             if ids_dataset is None:
-                if isinstance(coco_dataset, tuple) and len(coco_dataset) >= 2:
+                if isinstance(coco_dataset, tuple) and len(coco_dataset) == 2:
                     ids = list(coco_dataset[0].anns.keys()) + list(coco_dataset[1].anns.keys())
                 elif isinstance(coco_dataset, tuple) and len(coco_dataset) == 1:
                     ids = list(coco_dataset[0].anns.keys())
@@ -283,10 +282,10 @@ class COCO(CPairedDataset):
                 caption = coco.anns[ann_id]['caption']
                 img_id = coco.anns[ann_id]['image_id']
                 filename = coco.loadImgs(img_id)[0]['file_name']
-                height = coco.loadImgs(img_id)[0]['height']
-                width = coco.loadImgs(img_id)[0]['width']
-                heights.append(height)
-                widths.append(width)
+                # height = coco.loadImgs(img_id)[0]['height']
+                # width = coco.loadImgs(img_id)[0]['width']
+                # heights.append(height)
+                # widths.append(width)
 
                 example = Example.fromdict({
                     'image_id': img_id,
@@ -316,7 +315,7 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
     train_field = ImageField(transform=transform['train'], **config.dataset)
     examples = COCO(None, text_field, **config.dataset).split_examples()
 
-    if mode == 'freezing' and (config.optimizer.freezing_xe_epochs or config.optimizer.freezing_sc_epochs) > 0:
+    if mode == 'freezing' and (config.optimizer.freezing_xe_epochs + config.optimizer.freezing_sc_epochs) > 0:
         valid_field.init_hdf5_feat()
         train_field.init_hdf5_feat()
 
@@ -340,8 +339,9 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
         'test_dict': DictionaryCollator(valid_field, device=device),
     }
 
-    batch_size = config.optimizer.batch_size * 4 if mode == 'freezing' else config.optimizer.batch_size
-    sc_batch_size = config.optimizer.batch_size // 2 if mode == 'freezing' else config.optimizer.batch_size // 4
+    # 分离batch size
+    xe_batch_size = config.optimizer.xe_batch_size
+    sc_batch_size = config.optimizer.sc_batch_size
 
     dataloaders = {}
     # test and valid
@@ -366,7 +366,7 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
         'valid': DistributedSampler(datasets['valid'], shuffle=False),
         'train_dict': DistributedSampler(datasets['train_dict'], shuffle=True)
     }
-    batch_train_sampler = BatchSampler(samplers['train'], batch_size, drop_last=True)
+    batch_train_sampler = BatchSampler(samplers['train'], xe_batch_size, drop_last=True)
     batch_train_dict_sampler = BatchSampler(samplers['train_dict'], max(2, sc_batch_size), drop_last=True)
 
     dataloaders['train'] = DataLoader(
@@ -377,7 +377,7 @@ def build_coco_dataloaders(config=None, mode='freezing', device='cpu'):
     )
     dataloaders['valid'] = DataLoader(
         datasets['valid'],
-        batch_size=batch_size,
+        batch_size=xe_batch_size,
         sampler=samplers['valid'],
         collate_fn=collators['valid'],
         num_workers=config.optimizer.num_workers,
@@ -409,7 +409,7 @@ def build_test_dataloaders(config=None, device='cpu', from_idx=0, to_idx=-1):
             ),
     }
     collator = TestCollator(device=device)
-    sc_batch_size = config.optimizer.batch_size
+    sc_batch_size = config.optimizer.sc_batch_size
 
     dataloaders = {}
     # test and valid

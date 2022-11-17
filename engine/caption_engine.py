@@ -327,6 +327,7 @@ def train_xe(
     if scheduler is not None:
         scheduler.step()
     running_loss = .0
+    accumulation_steps = config.optimizer.xe_accumulation_steps
     with tqdm(desc=f'Epoch {epoch} - train', unit='it', total=len(dataloaders['train'])) as pbar:
         for it, batch in enumerate(dataloaders['train']):
             out = model(batch['samples'], batch['captions'])
@@ -334,10 +335,11 @@ def train_xe(
             captions_gt = batch['captions'][:, 1:].contiguous()
             out = out[:, :-1].contiguous()
             loss = loss_fn(out.view(-1, len(text_field.vocab)), captions_gt.view(-1))
-            loss = loss / config.optimizer.accumulation_steps
+            loss = loss / config.optimizer.xe_accumulation_steps
             loss.backward()
 
-            if (it + 1) % config.optimizer.accumulation_steps == 0 or  (it + 1) == len(dataloaders['train_dict']):
+            # todo last some steps fail to accumulation toward step
+            if (it + 1) % accumulation_steps == 0 or (it + 1) == len(dataloaders['train_dict']):
                 optimizers['model'].step()
                 optimizers['backbone'].step()
 
@@ -409,6 +411,7 @@ def train_sc(model,
     running_loss = .0
     seq_len = config.model.beam_len
     beam_size = config.model.beam_size
+    accumulation_steps = config.optimizer.sc_accumulation_steps
     model.train()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -447,12 +450,12 @@ def train_sc(model,
             loss = -torch.mean(log_probs, -1) * (reward - reward_baseline)
 
             loss = loss.mean()
-            loss = loss / config.optimizer.accumulation_steps
+            loss = loss / accumulation_steps
 
             loss.backward()
             torch.distributed.barrier()
 
-            if (it + 1) % config.optimizer.accumulation_steps == 0 or (it + 1) == len(dataloaders['train_dict']):
+            if (it + 1) % accumulation_steps == 0 or (it + 1) == len(dataloaders['train_dict']):
                 optimizers['model'].step()
                 optimizers['backbone'].step()
 
