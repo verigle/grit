@@ -342,10 +342,10 @@ def train_xe(
             if (it + 1) % accumulation_steps == 0 or (it + 1) >= len(dataloaders['train']):
 
                 optimizers['model'].step()
-                optimizers['backbone'].step()
+                # optimizers['backbone'].step()
 
                 optimizers['model'].zero_grad()
-                optimizers['backbone'].zero_grad()
+                # optimizers['backbone'].zero_grad()
 
             loss = gather_result(loss)
             running_loss += loss.item()
@@ -458,10 +458,10 @@ def train_sc(model,
 
             if (it + 1) % accumulation_steps == 0 or (it + 1) == len(dataloaders['train_dict']):
                 optimizers['model'].step()
-                optimizers['backbone'].step()
+                # optimizers['backbone'].step()
 
                 optimizers['model'].zero_grad()
-                optimizers['backbone'].zero_grad()
+                # optimizers['backbone'].zero_grad()
 
             loss = gather_result(loss)
             running_loss += loss.item()
