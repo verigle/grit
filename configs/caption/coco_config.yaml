@@ -1,6 +1,6 @@
 exp:
   seed: 42
-  name: caption_4ds_freeze_opt_ids_20221118_accumulate # eval
+  name: caption_4ds_freeze_20221121_accumulate # eval
   rank: 0
   ngpus_per_node: 1
   world_size: 1
@@ -67,7 +67,7 @@ model:
 optimizer:
   warmup_init_lr: 1e-5
   min_lr: 1e-4
-  xe_lr: 5e-4 # if xe_lr == min_lr, then CosineAnneal doesn't affect anymore.
+  xe_lr: 1e-4 # if xe_lr == min_lr, then CosineAnneal doesn't affect anymore.
   sc_lr: 5e-6
   xe_backbone_lr: 1e-5
   sc_backbone_lr: 5e-6
@@ -76,15 +76,15 @@ optimizer:
   beta_2: 0.99
   accumulation_steps: 4  # batch_size * accumulation_steps = target_batch_size
   batch_size: 32
-  xe_batch_size: 32
-  xe_accumulation_steps: 4
-  sc_batch_size: 16
-  sc_accumulation_steps: 8
-  num_workers: 1
-  freezing_xe_epochs: 10
-  freezing_sc_epochs: 10
-  finetune_xe_epochs: 0
-  finetune_sc_epochs: 0
+  xe_batch_size: 8
+  xe_accumulation_steps: 16
+  sc_batch_size: 8
+  sc_accumulation_steps: 16
+  num_workers: 2
+  freezing_xe_epochs: 0
+  freezing_sc_epochs: 0
+  finetune_xe_epochs: 10
+  finetune_sc_epochs: 10
   freeze_backbone: True
   freeze_detector: True
 
